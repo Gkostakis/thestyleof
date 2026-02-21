@@ -540,18 +540,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(const express = require("express");
-const express = require('express');
-const serverless = require('serverless-http');
-
-const app = express();
-
-app.get('/', (req, res) => {
-  res.send('Hello from Express serverless!');
-});
-
-module.exports = serverless(app);
-
 // api/index.js
 export default function handler(req, res) {
   res.status(200).send('Hello from Vercel!');
