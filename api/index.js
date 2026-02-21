@@ -540,6 +540,11 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🎨 Brand Analyzer running → http://localhost:${PORT}\n`);
+app.listen(const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("API running");
 });
+module.exports = app;
+
