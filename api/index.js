@@ -541,10 +541,13 @@ app.get('*', (req, res) => {
 });
 
 app.listen(const express = require("express");
+const express = require('express');
+const serverless = require('serverless-http');
+
 const app = express();
 
-app.get("/", (req, res) => {
-  res.send("API running");
+app.get('/', (req, res) => {
+  res.send('Hello from Express serverless!');
 });
-module.exports = app;
 
+module.exports = serverless(app);
