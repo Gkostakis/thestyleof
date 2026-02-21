@@ -1,5 +1,5 @@
 {
-  "name": "brand-identity-analyzer",
+  "name": "thestyleof",
   "version": "1.0.0",
   "description": "Extract branding & visual identity from any website",
   "main": "server.js",
