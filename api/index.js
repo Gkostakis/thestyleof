@@ -544,3 +544,14 @@ app.get('*', (req, res) => {
 export default function handler(req, res) {
   res.status(200).send('Hello from Vercel!');
 }
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/index.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api", "dest": "api/index.js" },
+    { "src": "/", "dest": "index.html" }
+  ]
+}
