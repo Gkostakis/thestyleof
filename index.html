@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Brand Extractor — Visual Identity Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  /* ── Reset & Variables ─────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:      #0d0d0d;
+    --paper:    #f5f2ed;
+    --cream:    #faf8f4;
+    --muted:    #7a7469;
+    --rule:     #e2ddd8;
+    --accent:   #c8401a;
+    --accent2:  #1a4fc8;
+    --success:  #1a8a4a;
+    --card-bg:  #ffffff;
+    --mono:     'DM Mono', monospace;
+    --serif:    'DM Serif Display', serif;
+    --sans:     'Instrument Sans', sans-serif;
+    --radius:   4px;
+    --shadow:   0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+    --shadow-lg:0 4px 8px rgba(0,0,0,0.08), 0 16px 48px rgba(0,0,0,0.10);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ───────────────────────────────────────── */
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Header ───────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--rule);
+    padding: 20px 0 18px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .logo-lockup { display: flex; align-items: baseline; gap: 10px; }
+
+  .logo-mark {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+
+  .logo-mark span { color: var(--accent); }
+
+  .tagline-header {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Hero Input Section ───────────────────────────── */
+  .hero {
+    padding: 80px 0 64px;
+    text-align: center;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(36px, 6vw, 60px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+
+  .hero h1 em {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .hero-sub {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 480px;
+    margin: 0 auto 48px;
+    line-height: 1.55;
+  }
+
+  /* ── Input Form ───────────────────────────────────── */
+  .input-form {
+    display: flex;
+    gap: 0;
+    max-width: 600px;
+    margin: 0 auto;
+    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card-bg);
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: box-shadow 0.15s;
+  }
+
+  .input-form:focus-within { box-shadow: 6px 6px 0 var(--ink); }
+
+  #url-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--ink);
+    background: transparent;
+    min-width: 0;
+  }
+
+  #url-input::placeholder { color: var(--muted); }
+
+  .analyze-btn {
+    border: none;
+    border-left: 1.5px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 24px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .analyze-btn:hover { background: var(--accent); }
+  .analyze-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+  /* ── States ───────────────────────────────────────── */
+  .state-loading, .state-error, .state-empty {
+    display: none;
+    text-align: center;
+    padding: 80px 0;
+  }
+
+  .state-empty { display: block; }
+
+  .loader {
+    width: 40px; height: 40px;
+    border: 3px solid var(--rule);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 20px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-url {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .error-box {
+    background: #fff5f3;
+    border: 1.5px solid #f0c4bb;
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    max-width: 480px;
+    margin: 0 auto;
+    text-align: left;
+  }
+
+  .error-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  /* ── Results Dashboard ────────────────────────────── */
+  #results {
+    display: none;
+    padding-bottom: 80px;
+  }
+
+  /* Results header bar */
+  .results-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 16px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 40px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .results-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  .site-favicon {
+    width: 20px; height: 20px;
+    border-radius: 3px;
+    object-fit: contain;
+  }
+
+  .site-name-label {
+    font-family: var(--serif);
+    font-size: 20px;
+    letter-spacing: -0.02em;
+  }
+
+  .cached-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: #edf5ea;
+    color: var(--success);
+    border: 1px solid #c5e0bb;
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+
+  .export-group { display: flex; gap: 8px; }
+
+  .btn-export {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1.5px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-export:hover { background: var(--ink); color: var(--paper); }
+
+  /* ── Grid Layout ──────────────────────────────────── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 700px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* ── Cards ────────────────────────────────────────── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: relative;
+    transition: box-shadow 0.2s;
+  }
+
+  .card:hover { box-shadow: var(--shadow); }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .card-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* ── Card: Overview ───────────────────────────────── */
+  .card-overview {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 700px) { .card-overview { grid-column: span 1; } }
+
+  .overview-inner { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+
+  .overview-text { flex: 1; min-width: 200px; }
+
+  .site-title {
+    font-family: var(--serif);
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .site-url-link {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent2);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--accent2);
+    word-break: break-all;
+  }
+
+  .site-url-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .site-description {
+    color: #444;
+    margin-top: 14px;
+    line-height: 1.6;
+    font-size: 14px;
+  }
+
+  /* ── Card: Logo ───────────────────────────────────── */
+  .logo-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    background: repeating-conic-gradient(#f0ece7 0% 25%, transparent 0% 50%) 0 0 / 12px 12px;
+    border-radius: 2px;
+    padding: 20px;
+    margin-top: 4px;
+  }
+
+  .logo-display img {
+    max-width: 160px;
+    max-height: 80px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.12));
+  }
+
+  .logo-source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* ── Card: Tagline ────────────────────────────────── */
+  .tagline-text {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1.35;
+    color: var(--ink);
+    position: relative;
+    padding-left: 16px;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* ── Card: Colors ─────────────────────────────────── */
+  .color-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 2px;
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    transition: transform 0.1s;
+    cursor: default;
+  }
+
+  .color-row:hover { transform: translateX(3px); }
+
+  .color-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .color-info { flex: 1; min-width: 0; }
+
+  .color-hex {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .color-rgb {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .color-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+
+  .color-label.primary   { background: #f0eaf8; color: #6b21a8; border-color: #d8b4fe; }
+  .color-label.secondary { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+  .color-label.accent    { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+
+  /* ── Card: Fonts ──────────────────────────────────── */
+  .font-list { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+
+  .font-item {
+    padding: 14px 16px;
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .font-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .font-category {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .font-sample {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border-left: 1px solid var(--rule);
+    padding-left: 12px;
+  }
+
+  /* ── Responsive tweaks ───────────────────────────── */
+  @media (max-width: 520px) {
+    .hero { padding: 48px 0 40px; }
+    .input-form { flex-direction: column; border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+    .analyze-btn { border-left: none; border-top: 1.5px solid var(--ink); }
+    header { flex-direction: column; gap: 6px; }
+  }
+
+  /* ── Animations ──────────────────────────────────── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .anim-in { animation: fadeIn 0.35s ease both; }
+  .anim-delay-1 { animation-delay: 0.05s; }
+  .anim-delay-2 { animation-delay: 0.10s; }
+  .anim-delay-3 { animation-delay: 0.15s; }
+  .anim-delay-4 { animation-delay: 0.20s; }
+  .anim-delay-5 { animation-delay: 0.25s; }
+
+  /* ── Footer ──────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 20px 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── Color palette bar (summary) ─────────────────── */
+  .color-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 1px solid var(--rule);
+  }
+
+  .color-bar-segment { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────── -->
+<header>
+  <div class="container" style="display:flex;align-items:baseline;justify-content:space-between;width:100%">
+    <div class="logo-lockup">
+      <span class="logo-mark">Brand<span>×</span>Extract</span>
+      <span class="tagline-header">Visual Identity Analyzer</span>
+    </div>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.06em">v1.0</span>
+  </div>
+</header>
+
+<!-- ── Hero ───────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
+    <p class="hero-eyebrow">Brand Intelligence Tool</p>
+    <h1>Extract any site's<br/><em>visual identity</em></h1>
+    <p class="hero-sub">Logos, fonts, colors, taglines — pulled directly from the live source. No uploads. No API key.</p>
+
+    <div class="input-form">
+      <input
+        id="url-input"
+        type="url"
+        placeholder="apple.com or https://nike.com"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="analyze-btn" id="analyze-btn" onclick="analyze()">Analyze →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── Main Content ───────────────────────────────────────── -->
+<main class="container">
+
+  <!-- Empty state -->
+  <div class="state-empty" id="state-empty">
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">
+      Try: apple.com · stripe.com · linear.app · notion.so
+    </p>
+  </div>
+
+  <!-- Loading state -->
+  <div class="state-loading" id="state-loading">
+    <div class="loader"></div>
+    <p style="font-size:14px;color:var(--muted)">Scanning visual identity…</p>
+    <p class="loading-url" id="loading-url"></p>
+  </div>
+
+  <!-- Error state -->
+  <div class="state-error" id="state-error">
+    <div class="error-box">
+      <p class="error-label">Error</p>
+      <p id="error-msg" style="font-size:14px;color:#7a2a1a"></p>
+    </div>
+  </div>
+
+  <!-- Results Dashboard -->
+  <div id="results">
+
+    <!-- Results top bar -->
+    <div class="results-bar">
+      <div class="results-meta">
+        <img id="r-favicon" class="site-favicon" src="" alt="" onerror="this.style.display='none'"/>
+        <span class="site-name-label" id="r-site-name"></span>
+        <span class="cached-badge" id="r-cached" style="display:none">Cached</span>
+      </div>
+      <div class="export-group">
+        <button class="btn-export" onclick="exportJSON()">↓ JSON</button>
+        <button class="btn-export" onclick="exportPDF()">↓ PDF</button>
+      </div>
+    </div>
+
+    <!-- Color palette bar -->
+    <div class="color-bar" id="r-color-bar"></div>
+
+    <!-- Row 1: Overview + Logo -->
+    <div class="grid-2" style="margin-bottom:20px">
+
+      <!-- Overview Card -->
+      <div class="card card-overview anim-in anim-delay-1">
+        <p class="card-label">01 · Overview</p>
+        <div class="overview-inner">
+          <div class="overview-text">
+            <h2 class="site-title" id="r-title"></h2>
+            <a id="r-url-link" class="site-url-link" href="#" target="_blank" rel="noopener"></a>
+            <p class="site-description" id="r-description"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logo Card -->
+      <div class="card anim-in anim-delay-2">
+        <p class="card-label">02 · Logo</p>
+        <div class="logo-display" id="r-logo-display">
+          <img id="r-logo-img" src="" alt="Site Logo" onerror="handleLogoError()"/>
+        </div>
+        <p class="logo-source" id="r-logo-source"></p>
+      </div>
+    </div>
+
+    <!-- Row 2: Tagline + Colors -->
+    <div class="grid-2" style="margin-bottom:20px">
+
+      <!-- Tagline Card -->
+      <div class="card anim-in anim-delay-3">
+        <p class="card-label">03 · Tagline / Slogan</p>
+        <p class="tagline-text" id="r-tagline"></p>
+      </div>
+
+      <!-- Colors Card -->
+      <div class="card anim-in anim-delay-4">
+        <p class="card-label">04 · Color Palette</p>
+        <div class="color-grid" id="r-colors"></div>
+        <p id="r-no-colors" style="display:none;font-family:var(--mono);font-size:11px;color:var(--muted)">
+          No CSS colors detected — site may use images or inline styles.
+        </p>
+      </div>
+    </div>
+
+    <!-- Row 3: Fonts full width -->
+    <div class="card anim-in anim-delay-5">
+      <p class="card-label">05 · Typography</p>
+      <div class="font-list" id="r-fonts"></div>
+      <p id="r-no-fonts" style="display:none;font-family:var(--mono);font-size:11px;color:var(--muted)">
+        No named fonts detected — site may use system defaults.
+      </p>
+    </div>
+
+    <!-- Scan metadata -->
+    <p style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:20px;letter-spacing:0.05em">
+      Scanned at <span id="r-scanned-at"></span> · Data extracted from public HTML/CSS only.
+    </p>
+  </div>
+
+</main>
+
+<footer>
+  <div class="container">
+    Brand×Extract · Ethical web scraping · Respects public HTML/CSS only
+  </div>
+</footer>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let lastResult = null;
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function show(id)  { document.getElementById(id).style.display = ''; }
+function hide(id)  { document.getElementById(id).style.display = 'none'; }
+function block(id) { document.getElementById(id).style.display = 'block'; }
+
+function setStates(loading, error, empty, results) {
+  document.getElementById('state-loading').style.display = loading ? 'block' : 'none';
+  document.getElementById('state-error').style.display   = error   ? 'block' : 'none';
+  document.getElementById('state-empty').style.display   = empty   ? 'block' : 'none';
+  document.getElementById('results').style.display       = results ? 'block' : 'none';
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text || '—';
+}
+
+// ── Analyze ────────────────────────────────────────────────────────────────
+async function analyze() {
+  const input = document.getElementById('url-input').value.trim();
+  if (!input) return;
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+
+  setStates(true, false, false, false);
+  document.getElementById('loading-url').textContent = input;
+
+  try {
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: input }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+
+    lastResult = data;
+    renderResults(data);
+    setStates(false, false, false, true);
+  } catch (err) {
+    document.getElementById('error-msg').textContent = err.message || 'Unknown error.';
+    setStates(false, true, false, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Enter key support ──────────────────────────────────────────────────────
+document.getElementById('url-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') analyze();
+});
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderResults(d) {
+  // Site name & favicon
+  const origin = new URL(d.url).origin;
+  document.getElementById('r-site-name').textContent = d.siteName || '';
+  document.getElementById('r-favicon').src = `${origin}/favicon.ico`;
+  document.getElementById('r-cached').style.display = d.cached ? 'inline' : 'none';
+
+  // Overview
+  document.getElementById('r-title').textContent = d.title || d.siteName || '';
+  const urlLink = document.getElementById('r-url-link');
+  urlLink.href = d.url;
+  urlLink.textContent = d.url;
+  document.getElementById('r-description').textContent = d.description || '';
+
+  // Logo
+  const logoImg = document.getElementById('r-logo-img');
+  if (d.logo?.url) {
+    logoImg.src = d.logo.url;
+    logoImg.style.display = '';
+    document.getElementById('r-logo-source').textContent = `Source: ${d.logo.source}`;
+  } else {
+    handleLogoError();
+  }
+
+  // Tagline
+  document.getElementById('r-tagline').textContent = d.tagline || d.description?.split('.')[0] || '—';
+
+  // Color palette bar
+  const bar = document.getElementById('r-color-bar');
+  bar.innerHTML = '';
+  if (d.colors && d.colors.length > 0) {
+    d.colors.forEach(c => {
+      const seg = document.createElement('div');
+      seg.className = 'color-bar-segment';
+      seg.style.background = c.hex;
+      bar.appendChild(seg);
+    });
+    bar.style.display = 'flex';
+  } else {
+    bar.style.display = 'none';
+  }
+
+  // Colors
+  const colorsEl = document.getElementById('r-colors');
+  colorsEl.innerHTML = '';
+  if (d.colors && d.colors.length > 0) {
+    d.colors.slice(0, 6).forEach(c => {
+      const labelClass = c.label === 'Primary' ? 'primary' : c.label === 'Secondary' ? 'secondary' : 'accent';
+      const textColor = c.luminance > 0.5 ? '#1a1a1a' : '#ffffff';
+      colorsEl.innerHTML += `
+        <div class="color-row">
+          <div class="color-swatch" style="background:${c.hex}"></div>
+          <div class="color-info">
+            <div class="color-hex">${c.hex}</div>
+            <div class="color-rgb">${c.rgb}</div>
+          </div>
+          <span class="color-label ${labelClass}">${c.label}</span>
+        </div>`;
+    });
+    hide('r-no-colors');
+  } else {
+    show('r-no-colors');
+  }
+
+  // Fonts
+  const fontsEl = document.getElementById('r-fonts');
+  fontsEl.innerHTML = '';
+  if (d.fonts && d.fonts.length > 0) {
+    d.fonts.forEach(f => {
+      fontsEl.innerHTML += `
+        <div class="font-item">
+          <div>
+            <div class="font-name">${escHtml(f.name)}</div>
+            <div class="font-category">${f.category}</div>
+          </div>
+          <div class="font-sample">${escHtml(f.sample)}</div>
+        </div>`;
+    });
+    hide('r-no-fonts');
+  } else {
+    show('r-no-fonts');
+  }
+
+  // Metadata
+  const ts = new Date(d.scrapedAt);
+  document.getElementById('r-scanned-at').textContent =
+    ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + ts.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function handleLogoError() {
+  const container = document.getElementById('r-logo-display');
+  container.innerHTML = `
+    <div style="text-align:center;color:var(--muted)">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+      </svg>
+      <p style="font-family:var(--mono);font-size:10px;margin-top:8px">Logo not detected</p>
+    </div>`;
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Export: JSON ───────────────────────────────────────────────────────────
+function exportJSON() {
+  if (!lastResult) return;
+  const json = JSON.stringify(lastResult, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const domain = new URL(lastResult.url).hostname.replace(/^www\./, '');
+  a.download = `brand-identity-${domain}.json`;
+  a.click();
+}
+
+// ── Export: PDF ────────────────────────────────────────────────────────────
+async function exportPDF() {
+  if (!lastResult || typeof window.jspdf === 'undefined') {
+    alert('PDF library not loaded. Please try again.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const d = lastResult;
+  const domain = new URL(d.url).hostname.replace(/^www\./, '');
+
+  // Header
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Brand Identity Report', 20, 25);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(120);
+  doc.text(`Generated by Brand×Extract · ${new Date().toLocaleDateString()}`, 20, 32);
+  doc.setDrawColor(220);
+  doc.line(20, 36, 190, 36);
+
+  doc.setTextColor(0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+
+  let y = 46;
+  const addSection = (label, value) => {
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(label.toUpperCase(), 20, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    const lines = doc.splitTextToSize(value || '—', 165);
+    doc.text(lines, 20, y);
+    y += lines.length * 6 + 6;
+  };
+
+  addSection('Website', d.url);
+  addSection('Site Name', d.siteName);
+  addSection('Title', d.title);
+  addSection('Description', d.description);
+  addSection('Tagline', d.tagline);
+
+  // Colors
+  if (y > 240) { doc.addPage(); y = 20; }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text('COLOR PALETTE', 20, y);
+  y += 6;
+
+  if (d.colors && d.colors.length > 0) {
+    d.colors.slice(0, 6).forEach((c, i) => {
+      const hex = c.hex.replace('#', '');
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      doc.setFillColor(r, g, b);
+      doc.roundedRect(20, y - 4, 10, 8, 1, 1, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text(`${c.hex}  ${c.rgb}  (${c.label})`, 34, y + 1);
+      y += 10;
+    });
+  }
+  y += 4;
+
+  // Fonts
+  if (y > 240) { doc.addPage(); y = 20; }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text('TYPOGRAPHY', 20, y);
+  y += 6;
+  if (d.fonts && d.fonts.length > 0) {
+    d.fonts.forEach(f => {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text(`${f.name} (${f.category})`, 20, y);
+      y += 6;
+    });
+  }
+
+  doc.save(`brand-identity-${domain}.pdf`);
+}
+</script>
+</body>
+</html>
